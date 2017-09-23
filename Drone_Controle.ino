@@ -10,6 +10,9 @@ bool radioNumber = 0;
 
 boolean Joy = false;
 
+unsigned long listenDroneTime = 0;
+unsigned long listenDroneTimeChecker = 100;
+
 /*Button Menu*/
 int btnStart = 1;
 int btnSelect = 2;
@@ -230,11 +233,13 @@ void loop() {
 	if(ps2x.ButtonPressed(PSB_CROSS)){
 		Serial.println("Botão 'Cross' pressionado");
 		radio.write(&btnCross, sizeof(int));
+		//listenDrone();
 	}
 		
 	if(ps2x.ButtonPressed(PSB_SQUARE)){
 		Serial.println("Botão 'Square' pressionado");
-		radio.write(&btnSquare, sizeof(int));   
+		radio.write(&btnSquare, sizeof(int)); 
+		//listenDrone(); 
 	}  
 
 /************************************************************/
@@ -260,5 +265,45 @@ void loop() {
 		radio.write(&Ry, sizeof(int));
 	}     
 
-	delay(50);
+	if(millis() >= listenDroneTime){
+		listenDroneTime += listenDroneTimeChecker;
+		listenDrone();
+	}
 }
+
+
+/*Escuta o que o drone enviou de dados para o controle*/
+void listenDrone(){
+	int got_time = 0;
+	int got_timeAnswer = 0;
+	int timeReset = 0;
+	radio.startListening();
+	while(true){
+		if(radio.available()){
+			while (radio.available()) {                                   // While there is data ready
+				radio.read( &got_time, sizeof(int) );             // Get the payload
+			}
+		}else{
+			timeReset++;
+		}
+		if(got_time != 0 || timeReset == 100){
+			if(got_time != 0){
+				Serial.print("Numero recebido ");
+				Serial.println(got_time);
+				//Serial.println(" milisegundos");
+				//analizeAnswer(got_time);
+			}else{
+				//Serial.println("Sem resposta");
+			}
+			break;     
+		}  
+		got_timeAnswer += 20;
+	}
+	radio.stopListening();
+}
+
+/*Analiza a resposta que chega do drone*/
+void analizeAnswer(int answer){
+	
+}
+
