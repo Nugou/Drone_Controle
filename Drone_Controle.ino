@@ -1,14 +1,17 @@
- 
+#include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <RF24.h>
-#include <printf.h>
 #include <PS2X_lib.h>
 
 /****************** User Config ***************************/
 /***      Set this radio as radio number 0 or 1         ***/
-bool radioNumber = 0;
+boolean radioNumber = false;
 
 boolean Joy = false;
+
+int delay_tr = 80;
+
+int temp_joy[4] = {128,128,128,128};
 
 unsigned long listenDroneTime = 0;
 unsigned long listenDroneTimeChecker = 100;
@@ -50,9 +53,7 @@ int btnLy = 20;
 #define PS2_SEL       3 //10  //16
 #define PS2_CLK       2 //12  //17
 
-//#define pressures   true
 #define pressures   false
-//#define rumble      true
 #define rumble      false
 
 PS2X ps2x; 
@@ -64,7 +65,10 @@ byte vibrate = 0;
 /* Hardware configuration: Set up nRF24L01 radio on SPI bus plus pins 7 & 8 */
 RF24 radio(7,8);
 /**********************************************************/
-                                                                           
+ 
+LiquidCrystal_I2C lcd(0x3F,2,1,0,4,5,6,7,3, POSITIVE);
+
+                                                                         
 byte addresses[][6] = {"1Node","2Node"};
 
 
@@ -74,11 +78,19 @@ bool role = 0;
 void setup(){
 
 	Serial.begin(115200);
+	lcd.begin (16,2);
+	lcd.setBacklight(HIGH);
 
 	for(int i = 3; i > 0; i--){
 		Serial.print("Aguardando ");
 		Serial.print(i);
 		Serial.println(" segundos!!!");
+		lcd.clear();
+		lcd.setCursor(0,0);
+		lcd.print("Aguardando ");
+		lcd.print(i);
+		lcd.setCursor(0,1);
+		lcd.print(" segundos!!!");
 		delay(1000);
 	}
 		
@@ -136,6 +148,7 @@ void setup(){
 	// Setup and configure radio
 
 	radio.begin();
+	radio.setPALevel(RF24_PA_MIN);
  
 	if(radioNumber){
 		radio.openWritingPipe(addresses[1]);        // Both radios listen on the same pipes by default, but opposite addresses
@@ -247,7 +260,7 @@ void loop() {
 	if(Joy) { //print stick values if either is TRUE
 		Serial.print("Stick Values:");
 		int Ly = (btnLy*1000) + ps2x.Analog(PSS_LY);
-		Serial.print(ps2x.Analog(PSS_LX), DEC); //Left stick, Y axis. Other options: LX, RY, RX  
+		Serial.print(ps2x.Analog(PSS_LY), DEC); //Left stick, Y axis. Other options: LX, RY, RX  
 		Serial.print(",");
 		int Lx = (btnLx*1000) + ps2x.Analog(PSS_LX);
 		Serial.print(ps2x.Analog(PSS_LX), DEC); 
@@ -258,11 +271,22 @@ void loop() {
 		int Rx = (btnRx*1000) + ps2x.Analog(PSS_RX);
 		Serial.println(ps2x.Analog(PSS_RX), DEC); 
 
-		
-		radio.write(&Lx, sizeof(int));
-		radio.write(&Ly, sizeof(int));
-		radio.write(&Rx, sizeof(int));
-		radio.write(&Ry, sizeof(int));
+		if(temp_joy[0] != Ly){
+			radio.write(&Ly, sizeof(int));delay(delay_tr);
+			temp_joy[0] = Ly;
+		}
+		if(temp_joy[1] != Lx){
+			radio.write(&Lx, sizeof(int));delay(delay_tr);
+			temp_joy[1] = Lx;
+		}
+		if(temp_joy[2] != Ry){
+			radio.write(&Ry, sizeof(int));delay(delay_tr);
+			temp_joy[2] = Ry;
+		}
+		if(temp_joy[3] != Rx){
+			radio.write(&Rx, sizeof(int));delay(delay_tr);
+			temp_joy[3] = Rx;
+		}
 	}     
 
 	if(millis() >= listenDroneTime){
@@ -275,7 +299,6 @@ void loop() {
 /*Escuta o que o drone enviou de dados para o controle*/
 void listenDrone(){
 	int got_time = 0;
-	int got_timeAnswer = 0;
 	int timeReset = 0;
 	radio.startListening();
 	while(true){
@@ -288,22 +311,19 @@ void listenDrone(){
 		}
 		if(got_time != 0 || timeReset == 100){
 			if(got_time != 0){
-				Serial.print("Numero recebido ");
-				Serial.println(got_time);
+				//Serial.print("Numero recebido ");
+				//Serial.println(got_time);
 				//Serial.println(" milisegundos");
-				//analizeAnswer(got_time);
-			}else{
-				//Serial.println("Sem resposta");
+				analizeAnswer(got_time);
 			}
 			break;     
 		}  
-		got_timeAnswer += 20;
 	}
 	radio.stopListening();
 }
 
 /*Analiza a resposta que chega do drone*/
 void analizeAnswer(int answer){
-	
+	lcd.clear();
 }
 
